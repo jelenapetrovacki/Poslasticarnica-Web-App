@@ -1,0 +1,1239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	
+
+	<flow name="poslasticarnicaFlow" doc:id="5ff542fc-1405-4209-a78b-e4d17bb6d6d8" >
+		<http:listener doc:name="Listener" doc:id="153a2aa6-51ac-4224-b920-efac18cd6e3f" config-ref="HTTP_Listener_config" path="/poslastica"/>
+		<set-payload value="Poslastica info" doc:name="Set Payload" doc:id="fd0c0ff1-2952-4826-8cbe-b05628c3bd79" />
+	</flow>
+	<flow name="getAllGost" doc:id="6ab8d65d-fa2f-4d04-9ccd-2b16dd79aeac" >
+		<set-variable value="#[message.attributes.queryParams.przGost]" doc:name="przGost" doc:id="32886f8d-5c56-4ed4-b250-7d8595cb875a" variableName="przGost"/>
+		<choice doc:name="Choice" doc:id="f3604510-6dc4-4fbd-8714-9dc98cd8d783" >
+			<when expression="#[vars.przGost != null]">
+				<db:select doc:name="Select with param" doc:id="01b35768-fe31-43cf-b027-830db5887d70" config-ref="Database_Config">
+					<db:sql >select * from gost where przGost = :przGost</db:sql>
+					<db:input-parameters ><![CDATA[#[{'przGost' : vars.przGost}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select" doc:id="a0e6f374-8097-4bd9-9f17-cf100d0787d1" config-ref="Database_Config">
+			<db:sql>select * from gost</db:sql>
+		</db:select>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="8e53cb1e-ecec-49de-9082-d554bf767e6f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="d2be66f0-77f4-4628-885b-c3bc35d46571" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="c9d8fba6-05bc-4fdf-b56d-6bc9a2dfd0fa" message="Ne postoje podaci o gostima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="52c26fc0-c42d-4aff-9db5-9772c00f0c7f" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="987ea4dc-bbc7-4957-921d-8a4528d970dc" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>		
+	</flow>
+	<flow name="getAllMaterijal" doc:id="cf71750c-b4f4-40f1-b767-a154c929728f" >
+		<set-variable value="#[message.attributes.queryParams.vrstaMaterijala]" doc:name="vrstaMaterijala" doc:id="3b5cb6cb-6963-440a-8192-7e76b4d5578a" variableName="vrstaMaterijala"/>
+		<choice doc:name="Choice" doc:id="4f17c6a3-16e0-44fc-95d5-19d743fd6030" >
+			<when expression="#[vars.vrstaMaterijala != null]">
+				<db:select doc:name="Select with param" doc:id="aa550c54-5ca5-4a1a-be37-0867bdf670a8" config-ref="Database_Config">
+					<db:sql >select * from materijal where vrstaMaterijala = :vrstaMaterijala</db:sql>
+					<db:input-parameters ><![CDATA[#[{'vrstaMaterijala' : vars.vrstaMaterijala}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Materijal" doc:id="11fb2603-cea3-424f-ab39-2a49fc864859" config-ref="Database_Config">
+					<db:sql >select m.*, nazivDobavljaca from materijal m join dobavljac d on (m.idDobavljac = d.idDobavljac)</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>			
+
+		<ee:transform doc:name="Transform Message" doc:id="4ba6f600-ed12-4d13-bc0c-27e4d93fe593" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="5afda057-7dc0-4cc8-b79b-4dfe198862d3" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="740c20bf-b675-4e34-ab12-7dfa5192559b" message="Ne postoje podaci o materijalima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5261a213-5688-49c0-921d-7ee3e3f9714e" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="7c843f87-fc2e-45d1-b86a-5a6e63ed5837" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="getAllDobavljac" doc:id="71dd523a-9b93-49cd-a792-068deeadb923" >
+		<set-variable value="#[message.attributes.queryParams.nazivDobavljaca]" doc:name="nazivDobavljaca" doc:id="5641da8a-7428-4c05-ad6d-f99d6aaff9a2" variableName="nazivDobavljaca"/>
+		<choice doc:name="Choice" doc:id="e7443ef9-dc7b-44a9-8c2f-f519e23f71de" >
+			<when expression="#[vars.nazivDobavljaca != null]">
+				<db:select doc:name="Select with param" doc:id="e2728c57-3c96-44f9-a9fd-6f7d3eeadb49" config-ref="Database_Config">
+					<db:sql >select * from dobavljac where nazivDobavljaca = :nazivDobavljaca</db:sql>
+					<db:input-parameters ><![CDATA[#[{'nazivDobavljaca' : vars.nazivDobavljaca}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select" doc:id="107c07f4-72a0-4cbc-98d7-f0944a8fa44a" config-ref="Database_Config">
+					<db:sql >select * from dobavljac</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>			
+
+		<ee:transform doc:name="Transform Message" doc:id="81b07787-cac6-48f2-83af-3147a99b9f7d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="004c4ee5-507d-43a7-931b-af7ba09c0348" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="e9aed977-1b85-415b-b48b-2ee75a24de73" message="Ne postoje podaci o dobavljacima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="49126913-6de7-4142-a1f9-19b0f2406347" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="8354199c-9ca3-41b4-b04a-0a9c1a7335f9" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	
+</flow>
+	<flow name="getAllMatPosl" doc:id="4ea9172d-a532-4294-99a6-ac32b58af3db" >
+		<set-variable value="#[message.attributes.queryParams.deoPoslastice]" doc:name="Set Variable" doc:id="94b53078-866c-4b0c-a9d3-ae65b22b625c" variableName="deoPoslastice"/>
+		<choice doc:name="Choice" doc:id="91cc8233-1e9c-422b-a810-4d8bb2a4b8a2" >
+			<when expression='#[vars.deoPoslastice == "fil"]'>
+				<db:select doc:name="Select" doc:id="a9efe2cb-b2f9-47ee-8292-20a331dba0c7" config-ref="Database_Config">
+					<db:sql >select * from materijal_poslastica where deoPoslastice= :deoPoslastice</db:sql>
+					<db:input-parameters ><![CDATA[#[{'deoPoslastice' : vars.deoPoslastice}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.deoPoslastice == "kora"]'>
+				<db:select doc:name="Select" doc:id="548636e5-9ad8-4426-b30f-8baac0024131" config-ref="Database_Config">
+					<db:sql >select mp.*, p.nazivPoslastice, cenaPoslastice, slikaURL, vrstaMaterijala, jedinicaMere from materijal_poslastica mp join materijal m on (mp.idMaterijal = m.idMaterijal) join poslastica p on (mp.idPoslastica = p.idPoslastica) where deoPoslastice= :deoPoslastice</db:sql>
+					<db:input-parameters ><![CDATA[#[{'deoPoslastice' : vars.deoPoslastice}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.deoPoslastice == "ostalo"]'>
+				<db:select doc:name="Select" doc:id="724f0d87-934e-4413-866b-afb141e1e95b" config-ref="Database_Config">
+					<db:sql >select mp.*, p.nazivPoslastice, cenaPoslastice, slikaURL, vrstaMaterijala, jedinicaMere from materijal_poslastica mp join materijal m on (mp.idMaterijal = m.idMaterijal) join poslastica p on (mp.idPoslastica = p.idPoslastica) where deoPoslastice= :deoPoslastice</db:sql>
+					<db:input-parameters ><![CDATA[#[{'deoPoslastice' : vars.deoPoslastice}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select MaterijalPoslastica" doc:id="ea5e5086-f899-4dab-a9dd-3b4aac583c77" config-ref="Database_Config">
+					<db:sql >select mp.*, p.nazivPoslastice, cenaPoslastice, slikaURL, vrstaMaterijala, jedinicaMere from materijal_poslastica mp join materijal m on (mp.idMaterijal = m.idMaterijal) join poslastica p on (mp.idPoslastica = p.idPoslastica)</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>	
+		<ee:transform doc:name="Transform Message" doc:id="be6e9af6-0d72-4f2b-aa26-cf229b48147a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="de158d44-0ed6-4589-bddf-3a22502c64e1" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="d53b0ab0-1c9e-4b8d-a973-af3d661c4298" message="Ne postoje podaci o materijalima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="99887031-a512-4629-a2bd-7a43f7cdd3e5" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="79e5597a-794a-4231-9e9f-2389ef7b84e7" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>		
+	</flow>
+	<flow name="getAllPorudzbina" doc:id="f8584ca4-7c8d-4bdd-a4da-3dc6f90ac652" >
+		<set-variable value="#[message.attributes.queryParams.statusPorudzbine]" doc:name="Set Variable" doc:id="ce043b07-67de-4bb4-a2bd-6df4536c9ff3" variableName="statusPorudzbine"/>
+		<choice doc:name="Choice" doc:id="43d892c8-1b67-4a4f-8254-8811fc667bf5" >
+			<when expression='#[vars.statusPorudzbine == "u pripremi"]'>
+				<db:select doc:name="Select" doc:id="6de80cd4-4bc4-4c09-bfdd-868d8b5ab564" config-ref="Database_Config">
+					<db:sql >select * from porudzbina where statusPorudzbine= :statusPorudzbine</db:sql>
+					<db:input-parameters ><![CDATA[#[{'statusPorudzbine' : vars.statusPorudzbine}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.statusPorudzbine == "isporucena"]'>
+				<db:select doc:name="Select" doc:id="826871a9-0052-4d05-b35c-db090c267ee2" config-ref="Database_Config">
+					<db:sql >select p.*, imeGost, przGost, adresaGost, grad, kontaktGost, emailGost from porudzbina p join gost g on (p.idGost = g.idGost) where statusPorudzbine= :statusPorudzbine</db:sql>
+					<db:input-parameters ><![CDATA[#[{'statusPorudzbine' : vars.statusPorudzbine}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.statusPorudzbine == "odbijena"]'>
+				<db:select doc:name="Select" doc:id="e9f16c6b-d83c-481b-a6fd-b12d98cec766" config-ref="Database_Config">
+					<db:sql >select p.*, imeGost, przGost, adresaGost, grad, kontaktGost, emailGost from porudzbina p join gost g on (p.idGost = g.idGost) where statusPorudzbine= :statusPorudzbine</db:sql>
+					<db:input-parameters ><![CDATA[#[{'statusPorudzbine' : vars.statusPorudzbine}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Porudzbina" doc:id="d6d7b564-e5de-4f39-b723-46350aee47c6" config-ref="Database_Config">
+					<db:sql >select p.*, imeGost, przGost, adresaGost, grad, kontaktGost, emailGost from porudzbina p join gost g on (p.idGost = g.idGost)</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>	
+		<ee:transform doc:name="Transform Message" doc:id="46d0e207-ca42-4993-b19a-04420e9038d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="139a9a0d-12bc-4543-bba0-69cc07b3cec6" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="56ae8db0-7e7d-4014-822f-412bae7322f1" message="Ne postoje podaci o porudzbinama.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="859f9a43-3ff7-4746-ae6f-bb8cad1b1115" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="aa8d54f7-ec67-4bec-9ef4-a16ee6968185" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>		
+	</flow>
+  <flow name="getAllPoslastica" doc:id="2ba05da7-d7f3-4002-9943-2aef129885fc" >
+		<set-variable value="#[message.attributes.queryParams.dostupna]" doc:name="Set Variable" doc:id="7565ae2e-c23c-4e87-88ac-290aa99588ea" variableName="dostupna"/>
+		<choice doc:name="Choice" doc:id="b224cd8e-db8b-463f-8aad-e22a1aaaa31b" >
+			<when expression='#[vars.dostupna == "0"]'>
+				<db:select doc:name="Select 0" doc:id="f07ca557-1d44-4252-ba8c-d2e40e2fcec5" config-ref="Database_Config">
+					<db:sql >select * from poslastica where dostupna= :dostupna</db:sql>
+					<db:input-parameters ><![CDATA[#[{'dostupna' : vars.dostupna}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.dostupna == "1"]'>
+				<db:select doc:name="Select 1" doc:id="c9f29abb-667e-43e8-8648-250f19090a9d" config-ref="Database_Config">
+					<db:sql >select * from poslastica where dostupna= :dostupna</db:sql>
+					<db:input-parameters ><![CDATA[#[{'dostupna' : vars.dostupna}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Poslastica" doc:id="607d5eaa-4a5a-4808-a293-ea40311c31c6" config-ref="Database_Config">
+					<db:sql >select * from poslastica</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>	
+		<ee:transform doc:name="Transform Message" doc:id="a3469e8f-4fba-4cfe-a7cc-fa746dafeb04" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="e70848c5-58eb-444c-b914-59df8fce681e" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="80e5c8a8-cff1-4c77-81a0-d60b2428e259" message="Ne postoje podaci o poslasticama.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="82c9bd00-b6e8-47b7-bdcf-d5f143b79f90" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="76d9f358-5cf0-42e1-a912-af62fa20ebaa" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>		
+	</flow>
+	<flow name="getAllRacun" doc:id="89238add-4557-46b4-b0b7-5bace9328cec" >
+		<set-variable value="#[message.attributes.queryParams.platnoSredstvo]" doc:name="Set Variable" doc:id="10ed3538-b4df-4504-bb6e-825196f61f2f" variableName="platnoSredstvo"/>
+		<choice doc:name="Choice" doc:id="ee2226cf-d361-47ad-a1e0-5aea05377e90" >
+			<when expression='#[vars.platnoSredstvo == "gotovina"]'>
+				<db:select doc:name="Select" doc:id="a2f354b4-b8d5-445f-9a7c-ad55ca54d0ac" config-ref="Database_Config">
+					<db:sql >select * from racun where platnoSredstvo= :platnoSredstvo</db:sql>
+					<db:input-parameters ><![CDATA[#[{'platnoSredstvo' : vars.platnoSredstvo}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<when expression='#[vars.platnoSredstvo == "kartica"]'>
+				<db:select doc:name="Select" doc:id="b45175cf-6fe8-447e-9c26-56547ae071a5" config-ref="Database_Config">
+					<db:sql >select * from racun where platnoSredstvo= :platnoSredstvo</db:sql>
+					<db:input-parameters ><![CDATA[#[{'platnoSredstvo' : vars.platnoSredstvo}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Racun" doc:id="a7977a2f-9fdc-4cad-adde-9f3a76deae1c" config-ref="Database_Config">
+					<db:sql >select * from racun</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="2cf32c72-332d-4ef5-82e1-6f1832897495" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="00288448-e6d4-4901-b5e9-76c30fd0155c" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="9496cf79-2ccf-457a-a24f-ff2e1e6068e2" message="Ne postoje podaci o racunima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5a2863d4-8031-4a27-bdde-ce4897e6c53e" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="f844f9b0-a06c-4bc7-8c9a-1b23061d9496" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="getAllRadnik" doc:id="7334b4bc-694c-4bdd-a501-460fa98601d5" >
+		<set-variable value="#[message.attributes.queryParams.prezimeRadnik]" doc:name="prezimeRadnik" doc:id="4ee3b201-8687-4108-8944-77bae3e08aee" variableName="prezimeRadnik"/>
+		<choice doc:name="Choice" doc:id="6338533e-b517-4049-947d-ddc46d4c85e5" >
+			<when expression="#[vars.prezimeRadnik != null]">
+				<db:select doc:name="Select with param" doc:id="475c4f4b-fd05-4b21-b27b-5b39079605c9" config-ref="Database_Config">
+					<db:sql >select * from radnik where prezimeRadnik = :prezimeRadnik</db:sql>
+					<db:input-parameters ><![CDATA[#[{'prezimeRadnik' : vars.prezimeRadnik}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Radnik" doc:id="c560905b-1d68-470f-8d15-4ef41d5f9d5e" config-ref="Database_Config">
+					<db:sql >select * from radnik</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>			
+
+		<ee:transform doc:name="Transform Message" doc:id="439925ef-b7b0-4536-bd53-da86e6d8ba3e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="1bf68f1f-33b4-4ef4-b9ad-59b1ae2fecfe" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="9981a470-dc9b-41e4-85a5-b62b26595c6b" message="Ne postoje podaci o radnicima.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="bd98d132-6bd2-453b-ab2e-b38e53f7c54e" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="b9a8fa7c-cfd8-401e-8abb-48f71446f2fd" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="getAllStavka" doc:id="8057d6e0-4d6d-4d7c-bfcb-34aef50aa148" >
+		<set-variable value="#[message.attributes.queryParams.idPorudzbina]" doc:name="idPorudzbina" doc:id="2b3722e5-869e-433a-9a5e-aea49738e801" variableName="idPorudzbina"/>
+		<choice doc:name="Choice" doc:id="d5e99429-f2f5-4a34-9abf-aab33bc51e2d" >
+			<when expression="#[vars.idPorudzbina != null]">
+				<db:select doc:name="Select with param" doc:id="495959cf-d124-4fed-9495-812db9a7c74e" config-ref="Database_Config">
+					<db:sql >select pp.*, p.dostava, p.rokIsporuke, p.iznos, p.idGost, g.imeGost, g.przGost, g.adresaGost, g.grad, g.kontaktGost, g.emailGost, posl.nazivPoslastice, posl.cenaPoslastice from porudzbina_poslastica pp join porudzbina p on (pp.idPorudzbina = p.idPorudzbina) join gost g on (p.idGost = g.idGost) join poslastica posl on (pp.idPoslastica = posl.idPoslastica) where idPorudzbina = :idPorudzbina</db:sql>
+					<db:input-parameters ><![CDATA[#[{'idPorudzbina' : vars.idPorudzbina}]]]></db:input-parameters>
+				</db:select>
+			</when>
+			<otherwise >
+				<db:select doc:name="Select Stavka" doc:id="907cfbcf-ef3d-4124-9f03-4ddefe89787d" config-ref="Database_Config">
+					<db:sql >select pp.*, p.dostava, p.rokIsporuke, p.iznos, p.idGost, g.imeGost, g.przGost, g.adresaGost, g.grad, g.kontaktGost, g.emailGost, posl.nazivPoslastice, posl.cenaPoslastice from porudzbina_poslastica pp join porudzbina p on (pp.idPorudzbina = p.idPorudzbina) join poslastica posl on (pp.idPoslastica = posl.idPoslastica)</db:sql>
+				</db:select>
+			</otherwise>
+		</choice>			
+		<ee:transform doc:name="Copy_of_Transform Message" doc:id="fd72bb19-126a-430b-b638-04b6148a124b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="303cb2b7-c145-4a6c-a633-e0b605b5f0b7" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="76c9331d-7877-4317-a3ed-1be74bd3c2d4" message="Ne postoje podaci o stavkama.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:NO_RECORDS" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="e251d799-d6ff-41aa-90f3-3527eb2d20c7" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="fd04574c-b7a2-4288-8368-d49d1e3e9dbe" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="deleteDobavljac" doc:id="481685d5-c0d8-46ab-9cc2-610d9a820f48" >
+		<db:delete doc:name="Delete" doc:id="de8ce6da-e838-422f-9f9e-6cbb9af5fee0" config-ref="Database_Config">
+			<db:sql >delete from dobavljac where idDobavljac = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idDobavljac
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="5f39a6eb-b23e-4477-aff4-55290a9b67c9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="e28cfbc4-6ec2-4d2d-8456-8c37882010d3" >
+			<validation:is-true doc:name="Is true" doc:id="bd92f63b-4176-45fe-9ff1-83268b075231" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="484fbb53-df3e-4dcf-8ea5-f026fd66abf3" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="3ad7c480-d900-445d-8919-5af9f0352d56" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	
+</flow>
+    <flow name="deleteGost" doc:id="88ce1626-7519-4622-b66b-861cd2db6022" >
+		<db:delete doc:name="Delete" doc:id="3814890a-9ba8-445b-8bc4-9f1a3f386b5c" config-ref="Database_Config">
+			<db:sql >delete from gost where idGost = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idGost
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="52c4abb4-6df0-4b2f-b292-93671fa312b0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="64939f40-1d84-488a-b9fb-17122e769c4c" >
+			<validation:is-true doc:name="Is true" doc:id="71491a41-6d05-4621-9e12-d48000402e77" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5edbaa77-718a-4429-8997-adb887f1b556" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="5f1fbdac-96ac-4974-bfba-5e2f092af4f6" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deleteMaterijal" doc:id="53665aea-a0f5-42cf-aaa9-445067e2c04a" >
+		<db:delete doc:name="Delete" doc:id="6730a6b7-985f-48de-852f-fcd0d3ed2681" config-ref="Database_Config">
+			<db:sql >delete from materijal where idMaterijal = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idMaterijal
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="b948cf06-3cb1-49a1-9dbe-613938cd740d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="e1954d3c-8545-4bcd-a9b0-9f80940ca66f" >
+			<validation:is-true doc:name="Is true" doc:id="bd0ad6de-7782-4d0d-ac3c-55728b020698" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3d11d1bf-bda1-4ee4-a566-6dc7257a3878" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="11ad0f7d-6b43-4c42-8def-ffbf9c003b8e" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deleteMaterPosl" doc:id="2f1fa624-5713-4f95-806b-7977eedee67d" >
+		<db:delete doc:name="Delete" doc:id="6ae4c0a7-c688-40c1-b699-6b715b52ee81" config-ref="Database_Config">
+			<db:sql >delete from materijal_poslastica where idMatPosl = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idMatPosl
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="7cbbcfe7-c172-4491-870b-9a5908e79645" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="dfd4d3c9-957b-464d-b656-89c78dd96647" >
+			<validation:is-true doc:name="Is true" doc:id="7084571f-a260-4140-a15b-71451c1a5722" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3c3c2865-45b2-4cd8-b377-987a935daf5b" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="5db5df91-19fa-459b-8bd3-0b17b7c3ffe3" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deletePorudzbina" doc:id="fb602c15-a0ff-47d2-a201-af77d6f3e633" >
+		<db:delete doc:name="Delete" doc:id="47fd25eb-0f76-43f3-bfcb-b65fd32317ba" config-ref="Database_Config">
+			<db:sql >delete from porudzbina where idPorudzbina = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idPorudzbina
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="5b95d82a-d5e8-4b7b-81d5-0a66644f31c9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="51fae947-4f4c-4d7b-a07d-03b0e6041cb5" >
+			<validation:is-true doc:name="Is true" doc:id="553400c5-23ac-4fe4-a225-c0d6b27f15fb" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2fdddc10-c02c-4049-b93b-70c958abaf5a" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="7c54ae30-900a-42c9-9f4f-16e8d98f4fdb" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deletePoslastica" doc:id="c8a5cf12-dc99-4880-85da-c059aba8cbc8" >
+		<db:delete doc:name="Delete" doc:id="b0dbf2ee-163b-45bb-8d3f-b049092b2cbc" config-ref="Database_Config">
+			<db:sql >delete from poslastica where idPoslastica = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idPoslastica
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="8d84356c-4645-49ab-9c87-14c229a50c1e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="d4836e55-0b10-43f4-b1c1-75fb2c8e5935" >
+			<validation:is-true doc:name="Is true" doc:id="575638e6-42fd-4644-8193-bd807bc6a320" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="068c92bc-a605-4ce7-8803-fa9e4e563611" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="b462f82a-42b8-4e92-a904-7a99120e694d" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deleteRacun" doc:id="a713f721-9d01-42ba-bc0c-4cdcfebe4e57" >
+		<db:delete doc:name="Delete" doc:id="dfaa92e0-4ba1-4896-991d-c27498fe6ef9" config-ref="Database_Config">
+			<db:sql >delete from racun where idRacun = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idRacun
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="ea4fa45a-d52f-4c2e-af5c-8111a0d25e22" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="ba22415b-a5bd-4e2a-b41f-49e36e576219" >
+			<validation:is-true doc:name="Is true" doc:id="cfdf6c93-aaed-461b-97a3-8651868843ab" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="7c442ea7-8441-4eb2-9ef0-7df9cfdc2f8f" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="e1ad6f1e-d749-4351-8caa-ffd9e0b3cbd2" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deleteRadnik" doc:id="e166926b-df84-4f1a-bec8-aefd7bf7497d" >
+		<db:delete doc:name="Delete" doc:id="f54745d9-1175-4a24-8639-1777f16e145c" config-ref="Database_Config">
+			<db:sql >delete from radnik where idRadnik = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idRadnik
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="778c6589-79bd-4fc9-9bd0-b9f8d12b5343" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="06a779c6-ed7f-43e7-b639-7f59301c92ba" >
+			<validation:is-true doc:name="Is true" doc:id="5414e195-342d-4393-90d5-bbc9d6f0ee3a" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2a064051-6e5e-46c4-b9db-5597ae308be4" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="369f7d8d-ed57-42d1-9402-2183f3fa6d90" variableName="httpStatus"/>
+			</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="deleteStavka" doc:id="1553b8d9-19ef-4d77-ae5b-61861704e029" >
+		<db:delete doc:name="Delete" doc:id="363c8e08-0382-4ede-b9b3-d8a60402de46" config-ref="Database_Config">
+			<db:sql >delete from porudzbina_poslastica where idPorPosl = :id </db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idPorPosl
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="86b8c8ec-53c4-4add-b188-0a0344737825" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="80014e4a-ab29-47e5-8488-365fdf72ee88" >
+			<validation:is-true doc:name="Is true" doc:id="5c0f88fe-8add-4067-bfb7-fc39f82803da" expression="#[payload ==1]" message="ID resursa kojeg zelite da obrisete ne postoji.">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:CANT_DELETE2" />
+		</validation:is-true>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="37892969-11ee-49bc-85d6-c5f2366bbc74" type="APP:CANT_DELETE2">
+					<set-variable value="404" doc:name="httpStatus" doc:id="f7921692-e2da-46ea-8d9f-d348b0698cb3" variableName="httpStatus"/>
+					<set-payload doc:name="Set Payload" doc:id="ec3f4026-b66f-4656-a595-b86f7bae34b7" value="ID resursa kojeg zelite da obrisete ne postoji."/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="GetDobavljacByID" doc:id="f17cb6ad-fdfd-4e9e-ae40-d6d186c1dc06" >
+		<db:select doc:name="Select " doc:id="11c33732-4df6-4385-9c5c-719371d4b4a1" config-ref="Database_Config">
+			<db:sql >select * from dobavljac where idDobavljac = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idDobavljac
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="9df30b72-756e-49ca-ba2d-0ff93e7e0e00" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="891e8481-fb28-4f9a-b5b2-298bfa62c190" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="28e0db50-fb1f-42d6-8cb5-e114280bcce9" message="Ne postoji podatak o trazenom dobavljacu.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="113e4f77-7630-4c12-aa8b-16300397db2c" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="4fc76a34-a317-439f-bec8-c528ea06a3ee" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetGostByID" doc:id="7ebb397e-f4d5-495e-8565-3f3cbd23ffc9" >
+		<db:select doc:name="Select " doc:id="548c0e54-615a-4c12-9b96-b3d6ffe7f4fa" config-ref="Database_Config">
+			<db:sql >select * from gost where idGost = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idGost
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="68a1cee9-7ddc-4818-9e76-5d1804013fbf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="a6f70e87-d6db-4f51-8620-f92ea75dada0" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="eca82e56-4c4f-4d43-9d13-a09008ad1818" message="Ne postoji podatak o trazenom gostu.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8b628770-fab1-4193-9502-6771ca322bcb" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="2eca23b0-1a93-4851-91a5-a16f3565dd64" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetMaterijalByID" doc:id="02f5b2ff-4501-4c87-8f78-6d7eaa3bf003" >
+		<db:select doc:name="Select " doc:id="1f418f60-0844-44f7-a383-333874512a67" config-ref="Database_Config">
+			<db:sql >select * from materijal where idMaterijal = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idMaterijal
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3cdb0bca-f0e4-4c7d-807a-6f1db96da123" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="3dbf5493-1c0e-4fd8-a497-bb816e64fbbe" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="d5a8498e-d2c1-4cd8-a2e6-8174737fb971" message="Ne postoji podatak o trazenom materijalu.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="d2eff5f3-78a1-4a31-a343-355744e98f01" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="0e6af3fb-cdba-430f-8b92-359b1bb082b6" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetMaterPoslByID" doc:id="5ea86f06-893e-48cd-828d-29eb3dbf1559" >
+		<db:select doc:name="Select " doc:id="d43d3636-34b6-406f-bd3c-66268f62a06c" config-ref="Database_Config">
+			<db:sql >select mp.*, p.nazivPoslastice, cenaPoslastice, slikaURL, vrstaMaterijala, jedinicaMere from materijal_poslastica mp join materijal m on (mp.idMaterijal = m.idMaterijal) join poslastica p on (mp.idPoslastica = p.idPoslastica) where mp.idPoslastica = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idMatPosl
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="fa9b0c22-5f34-44b5-86ec-d25279cab45e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="d0739685-569b-4d2e-ab46-32c3cacd0e9b" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="44b15974-de33-4566-a161-42eeff9f38ce" message="Ne postoji podatak o trazenom materijalu.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="49e17a1f-4641-4133-88e1-35b9de294cb4" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="03b39cc4-7842-4838-ad05-99c8743b05f6" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetPorudzbinaByID" doc:id="be6bfd92-7d5d-4e05-8828-22fb4564342d" >
+		<db:select doc:name="Select " doc:id="63226ec0-f8ab-4d2d-af37-b60545aa353b" config-ref="Database_Config">
+			<db:sql >select p.*, imeGost, przGost, adresaGost, grad, kontaktGost, emailGost from porudzbina p join gost g on (p.idGost = g.idGost) where idPorudzbina = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idPorudzbina
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="06ad19e5-a85d-48ad-8a11-4ada7a86cd89" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<try doc:name="Try" doc:id="89ecf989-817b-456d-b481-eb10767649e9" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="454f24d9-26b9-453d-8c80-508431e8cf4c" message="Ne postoji podatak o trazenoj porudzbini.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="061ea8de-9b84-45e6-9478-defcd61387d3" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="0b5ba3d2-f0da-4b04-bad4-4a879c895c20" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetPoslasticaByID" doc:id="23fa0427-aba2-484d-b61b-9c88a7097d8a" >
+		<db:select doc:name="Select " doc:id="b1011cb1-2728-4d4a-b999-ee88ef634a39" config-ref="Database_Config">
+			<db:sql >select * from poslastica where idPoslastica = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idPoslastica
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="4d2005d3-0343-4f4e-9cfc-10f70b596ddc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="ac4ba128-8bdd-417b-bf05-2b891d68e256" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="d1088919-8808-48f5-9594-b2d95e5b347c" message="Ne postoji podatak o trazenoj poslastici.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="7e86c52a-84f0-4591-8153-47ae6051c204" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="910d5e86-6803-4548-94b8-3a260da9945f" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetRacunByID" doc:id="342be554-4fe6-422b-b9fe-4f4c18fe95ce" >
+		<db:select doc:name="Select " doc:id="f4e3d2af-a2a7-49b2-a49c-765106c6975d" config-ref="Database_Config">
+			<db:sql >select * from racun where idRacun = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idRacun
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="330eea5c-8dd6-4a32-832d-feae9ff9c451" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="d8db7821-ee40-4a46-993c-5575c0308cbc" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="d3982f8a-63cc-4b0f-a8b3-97100b621dad" message="Ne postoji podatak o trazenom racunu.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="083b2ed7-2255-4b19-99b2-693b846f4683" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="6bb0fe47-0187-4da1-8fc9-81570992b4a1" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetRadnikByID" doc:id="254929ab-25a5-40fb-9167-014b00522755" >
+		<db:select doc:name="Select " doc:id="4d30c81c-7101-4f7a-ac44-5e69216f9864" config-ref="Database_Config">
+			<db:sql >select * from radnik where idRadnik = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+'id':message.attributes.uriParams.idRadnik
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="97cf63b2-9434-4a9f-97af-83ceae400436" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="7d542d09-16a3-43f5-9d36-d1ec5e347543" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="b56c7f06-980f-4866-bb48-2db7c0e30bf3" message="Ne postoji podatak o trazenom radniku.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1ecd0c4c-11c4-4d3e-a32d-b98a3710ddaa" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="ee0cb269-8ebe-4515-89b6-ed53cf3d5fff" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+    <flow name="GetStavkaByID" doc:id="8fbe0451-3e32-4c61-9562-882fd1620115">
+		<db:select doc:name="Select " doc:id="c214b75b-7727-4748-b560-b8ce81fd47af" config-ref="Database_Config">
+			<db:sql>select pp.*, p.dostava, p.rokIsporuke, p.iznos, p.idGost, g.imeGost, g.przGost, g.adresaGost, g.grad, g.kontaktGost, g.emailGost, posl.nazivPoslastice, posl.cenaPoslastice from porudzbina_poslastica pp join porudzbina p on (pp.idPorudzbina = p.idPorudzbina) join gost g on (p.idGost = g.idGost) join poslastica posl on (pp.idPoslastica = posl.idPoslastica) where pp.idPorudzbina = :id</db:sql>
+			<db:input-parameters><![CDATA[#[{
+'id':message.attributes.uriParams.idPorudzbina
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="0988b533-6ed4-4ff3-9805-afe889505f36">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="6e05b19b-dde7-4a57-a56f-0e27f2686081" >
+			<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="88429406-da3d-40e1-8807-70d4624e5146" message="Ne postoji podatak o trazenoj stavci.">
+				<error-mapping sourceType="VALIDATION:EMPTY_COLLECTION" targetType="APP:ID_NOT_FOUND2" />
+			</validation:is-not-empty-collection>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="53964e22-b9db-4e85-b109-50c1aea70afd" >
+					<set-variable value="404" doc:name="httpStatus" doc:id="5520849e-168a-4cec-8eaa-c4ba26c34f61" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+	<flow name="postDobavljac" doc:id="8c996dd7-49ed-4e91-b5bc-5a23e7c5e4ee" >
+		<db:insert doc:name="Insert" doc:id="b9487dbd-b27a-423c-8411-af2afdb6a27e" config-ref="Database_Config">
+			<db:sql >insert into dobavljac (nazivDobavljaca,kontaktDobavljaca) values (:nazivDobavljaca,:kontaktDobavljaca)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'nazivDobavljaca':message.payload.nazivDobavljaca,
+	'kontaktDobavljaca':message.payload.kontaktDobavljaca
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Dobavljac uspesno dodat!" doc:name="Set Payload" doc:id="32dde53c-312e-4547-9eeb-cbeca72602b3" />
+	</flow>
+	<flow name="postGost" doc:id="e7657bb0-c4f6-42f8-b727-62989626119a" >
+		<db:insert doc:name="Insert" doc:id="f01b1614-8cd2-4544-8ec0-fd445a2e1fad" config-ref="Database_Config">
+			<db:sql >insert into gost (imeGost,przGost,adresaGost,grad,kontaktGost,emailGost,passwordGost) values (:imeGost,:przGost,:adresaGost,:grad,:kontaktGost,:emailGost,:passwordGost)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'imeGost':message.payload.imeGost,
+	'przGost':message.payload.przGost,
+	'adresaGost':message.payload.adresaGost,
+	'grad':message.payload.grad,
+	'kontaktGost':message.payload.kontaktGost,
+	'emailGost':message.payload.emailGost,
+	'passwordGost':message.payload.passwordGost	
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Gost uspesno dodat!" doc:name="Set Payload" doc:id="abbc143b-4e9b-40c3-a472-ad1bc49dd412" />
+	</flow>
+	<flow name="postMaterijal" doc:id="0d7d48a6-72b4-4fbf-a157-559f27969308" >
+		<db:insert doc:name="Insert" doc:id="73fd8a53-f721-4e07-8320-085a1c349ee1" config-ref="Database_Config">
+			<db:sql >insert into materijal (vrstaMaterijala,cenaMaterijala,kolicinaMaterijala,jedinicaMere,idDobavljac) values (:vrstaMaterijala,:cenaMaterijala,:kolicinaMaterijala,:jedinicaMere,:idDobavljac)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'vrstaMaterijala':message.payload.vrstaMaterijala,
+	'cenaMaterijala':message.payload.cenaMaterijala,
+	'kolicinaMaterijala':message.payload.kolicinaMaterijala,
+	'jedinicaMere':message.payload.jedinicaMere,
+	'idDobavljac': message.payload.idDobavljac	
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Materijal uspesno dodat!" doc:name="Set Payload" doc:id="1ce29780-0517-4a69-ae6e-9682ce2fdc08" />
+	</flow>
+	<flow name="postPoslastica" doc:id="3045a3e4-1b32-4ad7-ab27-56e35a55a7c3" >
+		<db:insert doc:name="Insert" doc:id="e3e556a1-10d0-4d60-a007-22f7f588b2d1" config-ref="Database_Config">
+			<db:sql >insert into poslastica (nazivPoslastice,vrstaPoslastice,cenaPoslastice,kolicinaDostupnih,dostupna,personalizovana,idRadnik,slikaURL) values (:nazivPoslastice,:vrstaPoslastice,:cenaPoslastice,:kolicinaDostupnih,:dostupna,:personalizovana,:idRadnik,:slikaURL)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'nazivPoslastice':message.payload.nazivPoslastice,
+	'vrstaPoslastice':message.payload.vrstaPoslastice,
+	'cenaPoslastice':message.payload.cenaPoslastice,
+	'kolicinaDostupnih':message.payload.kolicinaDostupnih,
+	'dostupna':message.payload.dostupna,	
+	'personalizovana':message.payload.personalizovana,
+	'idRadnik':message.payload.idRadnik,
+	'slikaURL':message.payload.slikaURL
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Poslastica uspesno dodata!" doc:name="Set Payload" doc:id="355bde7e-87f4-40fb-9c73-24267a81f27b" />
+	</flow>
+	<flow name="postRacun" doc:id="f19cdfb8-c644-42c0-8a40-8cd05ce0862b" >
+		<db:insert doc:name="Insert" doc:id="b95c28f1-77f6-41f2-b0f3-752cbb4c9a28" config-ref="Database_Config">
+			<db:sql >insert into racun (suma,platnoSredstvo) values (:suma,:platnoSredstvo)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'suma':message.payload.suma,
+	'platnoSredstvo':message.payload.platnoSredstvo
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Racun uspesno dodat!" doc:name="Set Payload" doc:id="f7b56c25-5648-4072-b02b-04c38d1aebfd" />
+	</flow>
+	<flow name="postStavka" doc:id="da7a2367-6b9f-4895-aa04-c6314c2c675e" >
+		<db:insert doc:name="Insert" doc:id="910c214c-451e-4f3a-820d-6e0fc1581c6b" config-ref="Database_Config">
+			<db:sql >insert into porudzbina_poslastica (idPorudzbina,idPoslastica,kolicina) values (:idPorudzbina,:idPoslastica,:kolicina)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'idPorudzbina':message.payload.idPorudzbina,
+	'idPoslastica':message.payload.idPoslastica,
+	'kolicina':message.payload.kolicina	
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Stavka uspesno dodata!" doc:name="Set Payload" doc:id="f89a9796-accd-43b9-b330-5f77c2004f07" />
+	</flow>
+	<flow name="postRadnik" doc:id="3ebfc5f3-1ce4-48b7-944c-c821de31ef65" >
+		<db:insert doc:name="Insert" doc:id="e846bccb-a5d8-4156-a658-a8912e46e438" config-ref="Database_Config">
+			<db:sql >insert into radnik (imeRadnik,prezimeRadnik,JMBGRadnik,adresaRadnik,emailRadnik,passwordRadnik) values (:imeRadnik,:prezimeRadnik,:JMBGRadnik,:adresaRadnik,:emailRadnik,:passwordRadnik)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'imeRadnik':message.payload.imeRadnik,
+	'prezimeRadnik':message.payload.prezimeRadnik,
+	'JMBGRadnik':message.payload.JMBGRadnik,
+	'adresaRadnik':message.payload.adresaRadnik,
+	'emailRadnik':message.payload.emailRadnik,
+	'passwordRadnik':message.payload.passwordRadnik
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Radnik uspesno dodat!" doc:name="Set Payload" doc:id="24ea20f1-f2a2-48b0-b878-367c588b3405" />
+	</flow>
+	
+	<flow name="postPorudzbina" doc:id="3e8f6621-8167-477f-a248-f4d8a111ede1" >
+		<db:insert doc:name="Insert" doc:id="c420c6b5-f691-4691-9aa0-59e0be9a9c55" config-ref="Database_Config">
+			<db:sql>insert into porudzbina (dostava,rokIsporuke,iznos,zaOdmah,statusPorudzbine,idGost,idRacun) values (:dostava,:rokIsporuke,:iznos,:zaOdmah,:statusPorudzbine,:idGost,:idRacun)</db:sql>
+			<db:input-parameters><![CDATA[#[{
+	'dostava':message.payload.dostava,
+	'rokIsporuke':message.payload.rokIsporuke,
+	'iznos':message.payload.iznos,
+	'zaOdmah':message.payload.zaOdmah,
+	'statusPorudzbine':message.payload.statusPorudzbine,
+	'idGost':message.payload.idGost,
+	'idRacun':message.payload.idRacun
+}]]]></db:input-parameters>
+		</db:insert>
+		<db:select doc:name="Select" doc:id="59cf666e-7507-4189-a0df-d156e9d8281c" config-ref="Database_Config">
+			<db:sql >select * from porudzbina where idPorudzbina = (select max(idPorudzbina) from porudzbina)</db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="5d1f2db2-5985-4bcd-9c1d-e16904e1ba17" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="postMatPosl" doc:id="bccf7332-8a48-49a4-acbf-05ad5c6118f9" >
+		<db:insert doc:name="Insert" doc:id="6b4e6a56-5850-4e76-aa14-d463e3e0c4f5" config-ref="Database_Config">
+			<db:sql >insert into materijal_poslastica (idMaterijal,idPoslastica,potrebnaKolicina,deoPoslastice,dozvoljenaIzmena) values (:idMaterijal,:idPoslastica,:potrebnaKolicina,:deoPoslastice,:dozvoljenaIzmena)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'idMaterijal':message.payload.idMaterijal,
+	'idPoslastica':message.payload.idPoslastica,
+	'potrebnaKolicina':message.payload.potrebnaKolicina,
+	'deoPoslastice':message.payload.deoPoslastice,
+	'dozvoljenaIzmena':message.payload.dozvoljenaIzmena	
+			
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Materijal uspesno dodat!" doc:name="Set Payload" doc:id="02e3f4d0-a8f0-415d-8279-ac0cc5f03946" />
+	</flow>
+	<flow name="putDobavljac" doc:id="67b713a3-24c4-45f0-8fed-b98d8a80d531" >
+		<set-variable value="#[message.attributes.uriParams.idDobavljac]" doc:name="Save ID" doc:id="b89a8bbb-85d6-472e-b884-5532586fe361" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="121352e2-a69a-46d1-8c3f-48058154d2ff" variableName="prosledjenaPosl"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="5032a640-be1f-4514-9932-2e24fab1ecb0" config-ref="Database_Config">
+			<db:sql >select * from dobavljac where idDobavljac = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="e0666dec-d5e0-4f32-9e6e-5f5060fa21d2" >
+			<validation:is-not-null doc:name="Is not null" doc:id="be32c537-a216-4973-9342-c7616fd663c9" value="#[payload.idDobavljac]" message="Ne mozete izmeniti podatke o zeljenom dobavljacu.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="15ff19a4-b402-4c6f-9687-debbb3da4739" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="434ffde1-4d39-4de4-b740-a1443397b321" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="204b504c-71a3-448b-a28e-44e81952310a" config-ref="Database_Config">
+			<db:sql >update dobavljac set nazivDobavljaca = :nazivDobavljaca, kontaktDobavljaca = :kontaktDobavljaca where idDobavljac = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'nazivDobavljaca':vars.prosledjenaPosl.nazivDobavljaca,
+	'kontaktDobavljaca':vars.prosledjenaPosl.kontaktDobavljaca
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o dobavljacu uspesno izmenjeni!" doc:name="Set Payload" doc:id="e1be6e3d-2245-4efd-8f3f-045d09b9a567" />
+	</flow>
+	<flow name="putMaterijal" doc:id="2aff443c-05be-49d9-87a1-32461dcd350e" >
+		<set-variable value="#[message.attributes.uriParams.idMaterijal]" doc:name="Save ID" doc:id="34994d46-a189-4d35-9d96-195d4926f229" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="8f3f3110-6f30-4397-9dd3-7ad24a5fe16c" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="07bc4241-635a-4908-beb1-bf2b950b130a" config-ref="Database_Config">
+			<db:sql >select * from materijal where idMaterijal = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="cd62bc68-081e-4fd2-af10-c78cff20e817" >
+			<validation:is-not-null doc:name="Is not null" doc:id="553a0b70-1604-4c29-9316-2b03715cb1a6" value="#[payload.idMaterijal]" message="Ne mozete izmeniti podatke o zeljenom materijalu.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1359c5b5-d079-4983-8411-2700bb45cf4b" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="79d814dd-30d4-4a48-b63c-b78dab5560b8" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="7d1385bb-f2b1-4445-b8c7-5b6596ea3cac" config-ref="Database_Config">
+			<db:sql >update materijal set vrstaMaterijala = :vrstaMaterijala, cenaMaterijala = :cenaMaterijala, kolicinaMaterijala = :kolicinaMaterijala, jedinicaMere = :jedinicaMere where idMaterijal = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'vrstaMaterijala':vars.prosledjenBody.vrstaMaterijala,
+	'cenaMaterijala':vars.prosledjenBody.cenaMaterijala,
+	'kolicinaMaterijala':vars.prosledjenBody.kolicinaMaterijala,
+	'jedinicaMere':vars.prosledjenBody.jedinicaMere
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o materijalu uspesno izmenjeni!" doc:name="Set Payload" doc:id="e52c3306-1008-466d-bfb8-142f2cc9f7d1" />
+	</flow>
+	<flow name="putPoslastica" doc:id="9853dfdf-bbc4-4065-ad4b-5f12e5ffaa41" >
+		<set-variable value="#[message.attributes.uriParams.idPoslastica]" doc:name="Save ID" doc:id="43678e71-9c46-450b-ab7a-8abd326c5814" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="6121649e-86f8-4286-9faa-4f4c04fa0199" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="ce15ac76-b518-4d1a-8c90-5d72eee97a40" config-ref="Database_Config">
+			<db:sql >select * from poslastica where idPoslastica = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="a391c507-5288-4663-8a31-3f40f48078c1" >
+			<validation:is-not-null doc:name="Is not null" doc:id="19bc5153-f426-4bba-bb50-f7f943fb999f" value="#[payload.idPoslastica]" message="Ne mozete izmeniti podatke o zeljenoj poslastici.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="de46b201-db3d-4872-b7f2-c2e3fefcdeba" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="b75a66fc-7325-4ddd-8b55-d5c250b90a0b" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="81eb323b-fb56-4dd8-82e8-2541cf83d1ff" config-ref="Database_Config">
+			<db:sql >update poslastica set nazivPoslastice = :nazivPoslastice, vrstaPoslastice = :vrstaPoslastice, cenaPoslastice = :cenaPoslastice, kolicinaDostupnih = :kolicinaDostupnih, dostupna = :dostupna, personalizovana = :personalizovana, slikaURL = :slikaURL where idPoslastica = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'nazivPoslastice':vars.prosledjenBody.nazivPoslastice,
+	'vrstaPoslastice':vars.prosledjenBody.vrstaPoslastice,
+	'cenaPoslastice':vars.prosledjenBody.cenaPoslastice,
+	'kolicinaDostupnih':vars.prosledjenBody.kolicinaDostupnih,
+	'dostupna':vars.prosledjenBody.dostupna,
+	'personalizovana':vars.prosledjenBody.personalizovana,
+	'slikaURL':vars.prosledjenBody.slikaURL	
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o poslastici uspesno izmenjeni!" doc:name="Set Payload" doc:id="e492f492-673f-45f0-b6d5-641ab61dd291" />
+	</flow>
+	<flow name="putRacun" doc:id="9cb50aa7-2daa-46e3-8821-2409e752487e" >
+		<set-variable value="#[message.attributes.uriParams.idRacun]" doc:name="Save ID" doc:id="c8f23872-b31c-4800-955c-973e4160f2d4" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="bbcb47df-c09d-42e3-b4a8-877f9cdccd70" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="beb6a7a9-5b9d-466b-ab6d-8e21181834f9" config-ref="Database_Config">
+			<db:sql >select * from racun where idRacun = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="69f9afb5-89a0-481f-a974-77a9761a99cc" >
+			<validation:is-not-null doc:name="Is not null" doc:id="a45effd0-924c-4f35-8ca0-2732ad9928a4" value="#[payload.idRacun]" message="Ne mozete izmeniti podatke o zeljenom racunu.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="714862eb-e67c-441f-9410-b21d49656902" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="092b8fda-ac7d-4d01-8b7c-7c59563a2658" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="c958fd00-ba22-46c6-8588-31ee54aa11ac" config-ref="Database_Config">
+			<db:sql >update racun set suma = :suma, platnoSredstvo = :platnoSredstvo  where idRacun = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'suma':vars.prosledjenBody.suma,
+	'platnoSredstvo':vars.prosledjenBody.platnoSredstvo
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o racunu uspesno izmenjeni!" doc:name="Set Payload" doc:id="8e1357b6-3e48-41cc-93be-a9ed08247746" />
+	</flow>
+	<flow name="putStavka" doc:id="9819b796-0f92-417f-9386-c7880d3cadaf" >
+		<set-variable value="#[message.attributes.uriParams.idPorPosl]" doc:name="Save ID" doc:id="39becfab-075c-433e-aa0b-0869e30a4fa3" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="5d59148e-4c33-4b92-a8f5-1e2aa33e3c67" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="fd389b21-5f40-448e-9143-70d437f50957" config-ref="Database_Config">
+			<db:sql >select * from porudzbina_poslastica where idPorPosl = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="c37a8b88-752f-4b11-ae9b-c98b4f7745ce" >
+			<validation:is-not-null doc:name="Is not null" doc:id="37849346-7166-4bca-9d6b-261653c63f05" value="#[payload.idPorPosl]" message="Ne mozete izmeniti podatke o zeljenoj stavci.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3e2912fd-9ef3-4bf5-9d54-999542ad31e4" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="08ff5605-fea0-4488-af15-90e42352c909" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="ed29cab6-7f9b-4a82-bce9-0a523a5d8804" config-ref="Database_Config">
+			<db:sql >update porudzbina_poslastica set idPorudzbina = :idPorudzbina, idPoslastica = :idPoslastica, kolicina = :kolicina  where idPorPosl = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'idPorudzbina':vars.prosledjenBody.idPorudzbina,
+	'idPoslastica':vars.prosledjenBody.idPoslastica,
+	'kolicina':vars.prosledjenBody.kolicina
+	
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o stavci uspesno izmenjeni!" doc:name="Set Payload" doc:id="bcaa58df-ee27-4dbf-95c3-4f4978d5c09c" />
+	</flow>
+	<flow name="putRadnik" doc:id="02fc75aa-ecfc-4506-984e-0892d85f46b0" >
+		<set-variable value="#[message.attributes.uriParams.idRadnik]" doc:name="Save ID" doc:id="58e5921a-613b-4d43-a1e3-7a60f73140e7" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="53a57ecb-875e-4ba0-8463-3e10ddbd25cc" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="a7fc6e28-0d75-4756-97d7-4c2927ebe3a2" config-ref="Database_Config">
+			<db:sql >select * from radnik where idRadnik = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="ed0fdfb0-322c-4f5a-b505-fe243eee4101" >
+			<validation:is-not-null doc:name="Is not null" doc:id="92a727e0-3fe8-43b1-be0e-468fdc7f2bf1" value="#[payload.idRadnik]" message="Ne mozete izmeniti podatke o zeljenom radniku.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a975e174-9389-49f3-8f47-98cc95bbf5f5" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="b7edeced-22fe-42bd-91b1-404382e56228" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="4fc8c074-8682-4959-8d01-be63c533eadf" config-ref="Database_Config">
+			<db:sql >update radnik set imeRadnik = :imeRadnik, prezimeRadnik = :prezimeRadnik, JMBGRadnik = :JMBGRadnik, adresaRadnik = :adresaRadnik, emailRadnik = :emailRadnik, passwordRadnik = :passwordRadnik where idRadnik = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'imeRadnik':vars.prosledjenBody.imeRadnik,
+	'prezimeRadnik':vars.prosledjenBody.prezimeRadnik,
+	'JMBGRadnik':vars.prosledjenBody.JMBGRadnik,
+	'adresaRadnik':vars.prosledjenBody.adresaRadnik,
+	'emailRadnik':vars.prosledjenBody.emailRadnik,
+	'passwordRadnik':vars.prosledjenBody.passwordRadnik,
+	
+	
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o radniku uspesno izmenjeni!" doc:name="Set Payload" doc:id="267b3ca1-35d5-457b-9bc6-b261caa4e357" />
+	</flow>
+		<flow name="putGost" doc:id="a77a67f6-87c7-4933-b9a7-439172c32e0b" >
+		<set-variable value="#[message.attributes.uriParams.idGost]" doc:name="Save ID" doc:id="1a043d3a-9c0c-4874-87f0-7e46e3205894" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="8c248377-9945-48bc-966c-b2ac7f21b67e" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="d695732b-c454-4f4f-88be-f3cef2a00bdb" config-ref="Database_Config">
+			<db:sql >select * from gost where idGost = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="b77f1697-15c6-461f-bf3c-70f5a7dcf879" >
+			<validation:is-not-null doc:name="Is not null" doc:id="87a3d4eb-8683-40fe-9b83-85b64199930d" value="#[payload.idGost]" message="Ne mozete izmeniti podatke o zeljenom gostu.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="84f31c07-4920-4047-ba08-75a810abf0be" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="f6ab1c90-994f-4ee4-a384-706f04418ac9" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="9aadcb90-940a-4753-8a5b-ed0ba1752d34" config-ref="Database_Config">
+			<db:sql >update gost set imeGost = :imeGost, przGost = :przGost, adresaGost = :adresaGost, grad = :grad, kontaktGost = :kontaktGost, emailGost = :emailGost, passwordGost = :passwordGost where idGost = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'imeGost':vars.prosledjenBody.imeGost,
+	'przGost':vars.prosledjenBody.przGost,
+	'adresaGost':vars.prosledjenBody.adresaGost,
+	'grad':vars.prosledjenBody.grad,
+	'kontaktGost':vars.prosledjenBody.kontaktGost,
+	'emailGost':vars.prosledjenBody.emailGost,
+	'passwordGost':vars.prosledjenBody.passwordGost,
+	
+	
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o gostu uspesno izmenjeni!" doc:name="Set Payload" doc:id="fa092e57-6d54-47e7-ace6-c7b805b64def" />
+	</flow>
+	
+	<flow name="putPorudzbina" doc:id="6b8c826f-b1e7-43aa-9312-0a77fb58b208" >
+		<set-variable value="#[message.attributes.uriParams.idPorudzbina]" doc:name="Save ID" doc:id="dfd16f9e-4c13-4aeb-bf0a-6b9f9d1aeccd" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="6b066a11-d9a6-4ed9-9243-f985b0166411" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="9afff569-8c9c-46aa-a8d8-55321b2ff67c" config-ref="Database_Config">
+			<db:sql >select * from porudzbina where idPorudzbina = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="31179b12-798d-4f28-b946-d0b34bd0ec43" >
+			<validation:is-not-null doc:name="Is not null" doc:id="0b9a3631-298b-426b-bb81-6c4fbf836712" value="#[payload.idPorudzbina]" message="Ne mozete izmeniti podatke o zeljenoj porudzbini.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="41013384-d663-4fbc-a4da-892dbbff40ea" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="f3232146-d24e-4cf4-921c-4cc45460d2ae" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="8a99bfd4-49b0-47eb-9849-3d7b62120dc9" config-ref="Database_Config">
+			<db:sql >update porudzbina set dostava = :dostava, rokIsporuke = :rokIsporuke, iznos = :iznos, zaOdmah = :zaOdmah, statusPorudzbine = :statusPorudzbine where idPorudzbina = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'dostava':vars.prosledjenBody.dostava,
+	'rokIsporuke':vars.prosledjenBody.rokIsporuke,
+	'iznos':vars.prosledjenBody.iznos,
+	'zaOdmah':vars.prosledjenBody.zaOdmah,
+	'statusPorudzbine':vars.prosledjenBody.statusPorudzbine
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o porudzbini uspesno izmenjeni!" doc:name="Set Payload" doc:id="da50cc5a-c366-4de9-9252-60f945c216eb" />
+	</flow>
+	<flow name="putMatPosl" doc:id="adbf0c39-8ff0-454e-97a8-74d9e7bb6aa1" >
+		<set-variable value="#[message.attributes.uriParams.idMatPosl]" doc:name="Save ID" doc:id="540a8b2d-3de6-4473-b607-13c82a89e498" variableName="id"/>
+		<set-variable value="#[message.payload]" doc:name="Save Data" doc:id="ab9c6186-dd72-4462-8f2e-197f26a437f0" variableName="prosledjenBody"/>
+		<db:select doc:name="Select (if ID exists)" doc:id="31811297-27ef-436c-a92d-0727f9708f13" config-ref="Database_Config">
+			<db:sql >select * from materijal_poslastica where idMatPosl = :id</db:sql>
+			<db:input-parameters ><![CDATA[#['id':vars.id]]]></db:input-parameters>
+		</db:select>
+		<try doc:name="Try" doc:id="cd33b859-8bdd-4749-9343-a1e44ca6e5d7" >
+			<validation:is-not-null doc:name="Is not null" doc:id="1320a173-146e-4c8b-905f-202b267f442c" value="#[payload.idMatPosl]" message="Ne mozete izmeniti podatke o zeljenom materijalu.">
+			<error-mapping sourceType="VALIDATION:NULL" targetType="APP:NO_ID_FOUND" />
+		</validation:is-not-null>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="9c48957e-40a2-4a8b-b02b-aca62f49a20a" >
+					<set-variable value="400" doc:name="httpStatus" doc:id="4092d24b-bb43-4b58-80ff-2194dc293f4c" variableName="httpStatus"/>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<db:update doc:name="Update" doc:id="aad64355-74b3-4539-b105-56277dce61df" config-ref="Database_Config">
+			<db:sql >update materijal_poslastica set idMaterijal = :idMaterijal, idPoslastica = :idPoslastica, potrebnaKolicina = :potrebnaKolicina, deoPoslastice = :deoPoslastice, dozvoljenaIzmena = :dozvoljenaIzmena where idMatPosl = :id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id':vars.id,
+	'idMaterijal':vars.prosledjenBody.idMaterijal,
+	'idPoslastica':vars.prosledjenBody.idPoslastica,
+	'potrebnaKolicina':vars.prosledjenBody.potrebnaKolicina,
+	'deoPoslastice':vars.prosledjenBody.deoPoslastice,
+	'dozvoljenaIzmena':vars.prosledjenBody.dozvoljenaIzmena
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Podaci o materijalu uspesno izmenjeni!" doc:name="Set Payload" doc:id="c83cfe68-afc7-43e8-a80a-66a71587145a" />
+	</flow>
+
+
+
+</mule>
+
+

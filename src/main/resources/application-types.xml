@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="dobavljacMD" format="java">
+      <types:shape format="raml"><![CDATA[#%RAML 1.0 DataType
+type: string]]></types:shape>
+    </types:type>
+    <types:type name="dobavljac_example" format="json">
+      <types:shape format="weave" example="examples/DobavljacExample.json"><![CDATA[%dw 2.0
+
+type dobavljac_example = Array<{|  nazivDobavljaca: String,   kontaktDobavljaca: String|}> {"example": "[{\\\"nazivDobavljaca\\\":\\\"Stark\\\",\\\"kontaktDobavljaca\\\":\\\"kontakt@stark.com\\\"}]"}
+
+]]></types:shape>
+    </types:type>
+  </types:catalog>
+</types:mule>

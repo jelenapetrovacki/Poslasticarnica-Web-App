@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <apikit:config name="poslasticarnica-api-config" api="resource::3e1877cc-61ec-4a25-be29-9bfeeedf882c:poslasticarnica-api:1.0.4:raml:zip:poslasticarnica-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="poslasticarnica-api-main">
+        <http:listener config-ref="HTTP_Listener_config" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[output application/java --- vars.httpStatus default 500]">
+                <http:body><![CDATA[#[output application/json
+---
+{
+	"errorType": error..errorType,
+	"error": error.description
+}]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="poslasticarnica-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="poslasticarnica-api-console">
+        <http:listener config-ref="HTTP_Listener_config" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="poslasticarnica-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\dobavljac\(idDobavljac):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="e76fda67-684a-47ae-b915-2da56a573da3" name="putDobavljac" />
+    </flow>
+    <flow name="put:\gost\(idGost):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="00cc220e-a634-4ef5-a4ad-117684e0fa5e" name="putGost" />
+    </flow>
+    <flow name="put:\materijalPoslastica\(idMatPosl):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="c6c4788a-b0f4-4d65-829c-b8b9e8de3eb8" name="putMatPosl" />
+    </flow>
+    <flow name="put:\materijal\(idMaterijal):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="24d6ebd8-b04b-4473-ae5f-f80bea7dbcd6" name="putMaterijal" />
+    </flow>
+    <flow name="put:\stavka\(idPorPosl):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="15ef5ac1-4411-4220-9f0f-0067391c6ac0" name="putStavka" />
+    </flow>
+    <flow name="put:\porudzbina\(idPorudzbina):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="98ee7066-1fff-4f5f-81d1-71d607c2efa2" name="putPorudzbina" />
+    </flow>
+    <flow name="put:\poslastica\(idPoslastica):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postPoslastica" doc:id="4f4e57c4-0fc4-4788-9543-27aa9fb33903" name="putPoslastica" />
+    </flow>
+    <flow name="put:\racun\(idRacun):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="4ae7a196-639f-4827-a727-4815e0def97e" name="putRacun" />
+    </flow>
+    <flow name="put:\radnik\(idRadnik):application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="a31a89bd-a4b7-40e8-8874-5a035ca11e5a" name="putRadnik" />
+    </flow>
+    <flow name="delete:\dobavljac\(idDobavljac):poslasticarnica-api-config">
+        <flow-ref doc:name="Delete Dobavljac" doc:id="fc114d0e-5681-42f7-a279-ccf7d2a2991b" name="deleteDobavljac" />
+    </flow>
+    <flow name="delete:\gost\(idGost):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="959fc65c-5d62-45a5-ba1a-a84c43c4b6ca" name="deleteGost" />
+    </flow>
+    <flow name="delete:\materijalPoslastica\(idMatPosl):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="a412de95-e493-4932-8f2f-126dc4c92ab0" name="deleteMaterPosl" />
+    </flow>
+    <flow name="delete:\materijal\(idMaterijal):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="68d72669-60e3-4717-ab3e-00f07b9f7403" name="deleteMaterijal" />
+    </flow>
+    <flow name="delete:\stavka\(idPorPosl):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="94431a78-fa4d-43fc-b905-ba7477701ebc" name="deleteStavka" />
+    </flow>
+    <flow name="delete:\porudzbina\(idPorudzbina):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="821fd8ba-6f98-4e78-9b7d-22fe5f362f36" name="deletePorudzbina" />
+    </flow>
+    <flow name="delete:\poslastica\(idPoslastica):poslasticarnica-api-config">
+        <flow-ref doc:name="deletePoslastica" doc:id="1fa8d4cd-cd2d-41fe-ad3b-9f62a09472d4" name="deletePoslastica" />
+    </flow>
+    <flow name="delete:\racun\(idRacun):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="ea512482-e317-424a-9eb7-1270c11506cc" name="deleteRacun" />
+    </flow>
+    <flow name="delete:\radnik\(idRadnik):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="d96fe0dd-b948-48ae-9629-a3dc58f2111f" name="deleteRadnik" />
+    </flow>
+    <flow name="get:\dobavljac:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllDobavljac" doc:id="fd756d86-6c96-4292-83e7-966b6b15da48" name="getAllDobavljac" />
+    </flow>
+    <flow name="get:\gost:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllGost" doc:id="4a8512fe-0a81-45ae-ac95-8cd32702faf9" name="getAllGost" />
+    </flow>
+    <flow name="get:\materijal:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllMaterijal" doc:id="f726b1b1-f5c7-46d1-a89b-db1f9b2078c7" name="getAllMaterijal" />
+    </flow>
+    <flow name="get:\materijalPoslastica:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllMatPosl" doc:id="de9547bd-8140-4f01-8f5c-9d3e8ff07adc" name="getAllMatPosl" />
+    </flow>
+    <flow name="get:\porudzbina:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllPorudzbina" doc:id="222f640b-d594-450f-979e-f7fd749c763e" name="getAllPorudzbina" />
+    </flow>
+    <flow name="get:\poslastica:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllPoslastica" doc:id="4c4e522b-46a5-4dda-b154-433a1605f8cd" name="getAllPoslastica" />
+    </flow>
+    <flow name="get:\racun:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllRacun" doc:id="a9768f04-ef08-4c64-acaa-7aaad33a342c" name="getAllRacun" />
+    </flow>
+    <flow name="get:\radnik:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllRadnik" doc:id="06f0a965-ae29-4962-ade4-0369888f593f" name="getAllRadnik" />
+    </flow>
+    <flow name="get:\stavka:poslasticarnica-api-config">
+        <flow-ref doc:name="getAllStavka" doc:id="684d45f4-df94-459f-b7e2-0ec8c29d23d9" name="getAllStavka" />
+    </flow>
+    <flow name="get:\dobavljac\(idDobavljac):poslasticarnica-api-config">
+        <flow-ref doc:name="getDobavljacByID" doc:id="f7f55bdf-3a66-44a5-a723-b23a449ba89d" name="GetDobavljacByID" />
+    </flow>
+    <flow name="get:\gost\(idGost):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="51707472-39b2-4141-a617-68161c98de71" name="GetGostByID" />
+    </flow>
+    <flow name="get:\materijalPoslastica\(idMatPosl):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="49580cab-9aa5-476f-bc0e-1326b54e0044" name="GetMaterPoslByID" />
+    </flow>
+    <flow name="get:\materijal\(idMaterijal):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="1af244ad-c202-4487-8f18-f5a5f4dab9be" name="GetMaterijalByID" />
+    </flow>
+    <flow name="get:\stavka\(idPorPosl):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="1e4e8c00-0403-4f8f-a732-cad99a7ee1d5" name="GetStavkaByID" />
+    </flow>
+    <flow name="get:\porudzbina\(idPorudzbina):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="b3362da2-cb0a-4e6b-b908-e902179ce7b0" name="GetPorudzbinaByID" />
+    </flow>
+    <flow name="get:\poslastica\(idPoslastica):poslasticarnica-api-config">
+        <flow-ref doc:name="GetPoslasticaByID" doc:id="8a99fb6f-e7de-44d5-ade0-aa219d5618bc" name="GetPoslasticaByID" />
+    </flow>
+    <flow name="get:\racun\(idRacun):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="2704ae21-dff9-4e3f-932f-baf6eba94b9a" name="GetRacunByID" />
+    </flow>
+    <flow name="get:\radnik\(idRadnik):poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="2d8b4942-3acc-4b00-a3cb-3735284a1b1e" name="GetRadnikByID" />
+    </flow>
+    <flow name="post:\dobavljac:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="28547886-eb18-42ff-9695-e51f7ff2bd0d" name="postDobavljac" />
+    </flow>
+    <flow name="post:\gost:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postGost" doc:id="89ee4443-1687-46e9-abca-9284409867e3" name="postGost" />
+    </flow>
+    <flow name="post:\materijal:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postMaterijal" doc:id="175ee2f0-c889-4949-a660-b80f773933c0" name="postMaterijal" />
+    </flow>
+    <flow name="post:\materijalPoslastica:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postMatPosl" doc:id="130858be-b2f8-4390-9c87-f6b08e3dae67" name="postMatPosl" />
+    </flow>
+    <flow name="post:\porudzbina:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postPorudzbina" doc:id="5da0b130-5867-4453-a7fb-6a5bacda8594" name="postPorudzbina" />
+    </flow>
+    <flow name="post:\poslastica:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postPoslastica" doc:id="24718721-8f00-489e-b9d9-22377e6a0e00" name="postPoslastica" />
+    </flow>
+    <flow name="post:\racun:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postRacun" doc:id="936a197e-b343-4d25-ba7b-5f6a88f85193" name="postRacun" />
+    </flow>
+    <flow name="post:\radnik:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postRadnik" doc:id="4b33f857-a119-4473-aef8-01e3ae9c1d08" name="postRadnik" />
+    </flow>
+    <flow name="post:\stavka:application\json:poslasticarnica-api-config">
+        <flow-ref doc:name="postStavka" doc:id="4ff9ad20-6d3e-4eeb-b9b3-643f107a4a0f" name="postStavka" />
+    </flow>
+</mule>
